@@ -235,11 +235,11 @@ def _build_planner_chain() -> RunnableWithMessageHistory:
         headers["X-Title"] = OPENROUTER_APP_NAME
 
     llm = ChatOpenAI(
-        model_name=OPENROUTER_MODEL,
+        model=OPENROUTER_MODEL,
         api_key=OPENROUTER_API_KEY,
-        api_base=OPENROUTER_BASE_URL,
+        base_url=OPENROUTER_BASE_URL,
         temperature=0.1,
-        request_timeout=OPENROUTER_TIMEOUT_SECONDS,
+        timeout=OPENROUTER_TIMEOUT_SECONDS,
         max_retries=1,
         default_headers=headers,
     )
