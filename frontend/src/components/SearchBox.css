@@ -1,0 +1,161 @@
+.searchBoxWrap {
+  position: relative;
+  width: 100%;
+}
+
+.searchSlideout {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-height: min(460px, calc(100vh - 180px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(18, 28, 46, 0.98), rgba(10, 16, 28, 0.98));
+  border-radius: 16px;
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.34);
+  padding: 12px;
+  z-index: 10000;
+  animation: searchSlideIn 180ms ease-out;
+}
+
+.searchSlideoutHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.searchSlideoutTitle {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.searchSlideoutMeta {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.searchSlideoutClear {
+  border: 1px solid var(--line);
+  background: rgba(10, 17, 30, 0.86);
+  color: var(--text);
+  border-radius: 10px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.searchSlideoutClear:hover {
+  background: rgba(18, 28, 46, 0.96);
+}
+
+.searchSlideoutState {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.searchSlideoutError {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(72, 18, 24, 0.82);
+  color: #ffc2c2;
+}
+
+.searchSlideoutSection + .searchSlideoutSection {
+  margin-top: 10px;
+}
+
+.searchSlideoutSectionTitle {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--muted);
+  text-transform: lowercase;
+  margin: 2px 2px 8px;
+}
+
+.searchSlideoutList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.searchSlideoutItemBtn {
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: rgba(8, 13, 24, 0.74);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.searchSlideoutItemBtn:hover {
+  background: rgba(12, 19, 33, 0.94);
+  border-color: #314661;
+}
+
+.searchSlideoutItemBtn:focus-visible {
+  outline: 2px solid rgba(93, 167, 255, 0.45);
+  outline-offset: 1px;
+}
+
+.searchSlideoutItemTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.searchSlideoutItemTitle {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.searchSlideoutTabPill {
+  border: 1px solid rgba(93, 167, 255, 0.24);
+  background: rgba(93, 167, 255, 0.1);
+  color: #d0e6ff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: lowercase;
+}
+
+.searchSlideoutItemSubtitle {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+@keyframes searchSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 520px) {
+  .searchSlideout {
+    max-height: min(420px, calc(100vh - 200px));
+  }
+}
