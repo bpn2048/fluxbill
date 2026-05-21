@@ -62,7 +62,10 @@ CORS_ORIGINS = [
     for x in os.getenv("CORS_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",")
     if x.strip()
 ]
-CORS_ORIGIN_REGEX = os.getenv("CORS_ORIGIN_REGEX", r"^https?://.*\.vercel\.app$").strip() or None
+CORS_ORIGIN_REGEX = os.getenv(
+    "CORS_ORIGIN_REGEX",
+    r"^https?://([a-z0-9-]+\.)?netlify\.app$|^https?://.*\.ngrok(-free)?\.app$",
+).strip() or None
 
 SEED_ON_STARTUP = os.getenv("SEED_ON_STARTUP", "true").strip().lower() in {"1", "true", "yes"}
 

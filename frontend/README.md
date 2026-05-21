@@ -23,4 +23,4 @@ Output in `dist/`.
 
 ## Deploy
 
-Vercel auto-detects this folder when set as the project root. Configure `VITE_BACKEND_URL` as a build-time env var — it gets inlined into the bundle.
+Netlify picks up [netlify.toml](netlify.toml), which sets `base = "frontend"`, `command = "npm run build"`, `publish = "dist"`, and a SPA fallback to `/index.html`. Configure `VITE_BACKEND_URL` (your ngrok URL) as a build-time env var in *Site settings → Build & deploy → Environment* — Vite inlines it into the bundle, so you must redeploy after changing it.

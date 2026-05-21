@@ -23,8 +23,7 @@ RUN python -c "from faster_whisper import WhisperModel; WhisperModel('${WHISPER_
 
 COPY . .
 
-# Hugging Face Spaces injects $PORT (=7860). Locally, docker-compose maps 8000.
-ENV PORT=7860
-EXPOSE 7860
+ENV PORT=8000
+EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]

@@ -4,16 +4,16 @@ AI-assisted billing dashboard demo. React + Vite frontend, FastAPI backend with 
 
 | | |
 |---|---|
-| Frontend | Vite + React 19, deployed on Vercel |
-| Backend | FastAPI + LangChain + `faster-whisper`, containerized for Hugging Face Spaces |
+| Frontend | Vite + React 19, deployed on Netlify |
+| Backend | FastAPI + LangChain + `faster-whisper`, run locally via Docker and exposed through an ngrok tunnel |
 | Database | Postgres (Neon serverless for prod, local docker image for dev) |
 | LLM | OpenRouter (`meta-llama/llama-3.1-8b-instruct:free` by default) |
 | Voice STT | `faster-whisper`, default `tiny` model, runs CPU-only |
 
 ## Live demo
 
-- Frontend: _TBD — set after first Vercel deploy_
-- Backend: _TBD — set after first Hugging Face Spaces deploy_
+- Frontend: _TBD — set after first Netlify deploy_
+- Backend: _TBD — ngrok tunnel URL, set after first `ngrok http 8000`_
 
 ## Layout
 
@@ -26,14 +26,14 @@ fluxbill/
 │   ├── models.py
 │   ├── seed.py
 │   ├── Dockerfile
-│   └── README.md          # also serves as the HF Spaces README
+│   └── README.md
 ├── frontend/    Vite + React 19 dashboard
 │   ├── src/
 │   ├── package.json
-│   └── vercel.json
+│   └── netlify.toml
 ├── docs/
 │   ├── ARCHITECTURE.md    # components and data flow
-│   ├── DEPLOYMENT.md      # step-by-step deploy to Vercel + HF + Neon
+│   ├── DEPLOYMENT.md      # step-by-step deploy to Netlify + ngrok + Neon
 │   └── LOCAL_DEV.md       # docker compose up walkthrough
 └── docker-compose.yml     # one-command local stack
 ```
@@ -55,8 +55,8 @@ Full walkthrough: [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
 ## Deploy
 
 ```
-Frontend  →  Vercel       (free, native Vite support)
-Backend   →  HF Spaces    (free, Docker SDK, no credit card)
+Frontend  →  Netlify      (free, native Vite support, SPA rewrite via netlify.toml)
+Backend   →  local Docker + ngrok tunnel  (free reserved static domain)
 Database  →  Neon         (free, never-sleep Postgres)
 LLM       →  OpenRouter   (free models available)
 ```

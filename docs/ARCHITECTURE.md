@@ -3,22 +3,22 @@
 FluxBill is a two-tier demo: a Vite/React SPA in `frontend/` and a FastAPI service in `backend/`. State lives in Postgres. The backend exposes both a conventional CRUD surface and an AI assistant that turns natural-language (text or voice) into structured UI commands.
 
 ```
-┌──────────────────────┐         REST /api/*          ┌──────────────────────┐
-│                      │ ───────────────────────────▶ │                      │
-│  Vite + React 19     │                              │  FastAPI             │
-│  (Vercel)            │ ◀───── /assistant/text  ──── │  Hugging Face Spaces │
-│                      │ ◀───── /assistant/voice ──── │  (Docker)            │
-└──────────────────────┘                              └────────────┬─────────┘
-                                                                   │
-                                                                   ▼
-                                                          ┌──────────────────┐
-                                                          │  Postgres (Neon) │
-                                                          └──────────────────┘
-                                                                   ▲
-                                                                   │
-                                                          ┌──────────────────┐
-                                                          │  OpenRouter LLM  │
-                                                          └──────────────────┘
+┌──────────────────────┐         REST /api/*          ┌──────────────────────┐         ┌──────────────────────┐
+│                      │ ───────────────────────────▶ │                      │ ──────▶ │                      │
+│  Vite + React 19     │                              │  ngrok tunnel        │         │  FastAPI             │
+│  (Netlify)           │ ◀───── /assistant/text  ──── │  *.ngrok-free.app    │ ◀────── │  (local Docker)      │
+│                      │ ◀───── /assistant/voice ──── │                      │         │                      │
+└──────────────────────┘                              └──────────────────────┘         └────────────┬─────────┘
+                                                                                                    │
+                                                                                                    ▼
+                                                                                           ┌──────────────────┐
+                                                                                           │  Postgres (Neon) │
+                                                                                           └──────────────────┘
+                                                                                                    ▲
+                                                                                                    │
+                                                                                           ┌──────────────────┐
+                                                                                           │  OpenRouter LLM  │
+                                                                                           └──────────────────┘
 ```
 
 ## Backend layout
@@ -58,14 +58,15 @@ IDs are application-generated with sequential suffixes (`CUST-001`, `INV-0001`, 
 
 ## Deployment topology
 
-- **Frontend → Vercel**. SPA fallback via `vercel.json`. Build-time `VITE_BACKEND_URL` is inlined.
-- **Backend → Hugging Face Spaces (Docker SDK)**. The `backend/README.md` frontmatter tells HF this is a Docker space and to expose port 7860. Secrets (`DATABASE_URL`, `OPENROUTER_API_KEY`, `CORS_ORIGINS`) are set in the Space settings.
-- **DB → Neon**. The pooled connection URL goes into `DATABASE_URL`; `db.py` upgrades it to the `+psycopg` driver SQLAlchemy needs.
+- **Frontend → Netlify**. SPA `/*` → `/index.html` rewrite via [frontend/netlify.toml](../frontend/netlify.toml). Build-time `VITE_BACKEND_URL` (the ngrok URL) is inlined into the bundle.
+- **Backend → local Docker, exposed via ngrok**. `docker compose up backend db` runs the FastAPI container on `localhost:8000`; `ngrok http --domain=<reserved>.ngrok-free.app 8000` makes it reachable from the Netlify frontend. The reserved static domain keeps `VITE_BACKEND_URL` stable across ngrok restarts.
+- **DB → Neon** (or the local `db` service for fully-offline dev). The pooled connection URL goes into `DATABASE_URL`; `db.py` upgrades it to the `+psycopg` driver SQLAlchemy needs.
 - **LLM → OpenRouter**. Free model `meta-llama/llama-3.1-8b-instruct:free` is the default.
 
 ## Trade-offs worth knowing
 
+- **Backend runs on your machine.** The Netlify frontend stays up, but `/api/*` and `/assistant/*` only work while the local backend + ngrok tunnel are both running. Acceptable for a demo; not a 24/7 prod topology.
+- **ngrok adds a hop.** Every request goes browser → ngrok edge → your laptop. Expect ~50–150 ms of extra latency depending on geography, and the free plan rate-limits at a few requests/second.
 - **In-memory chat history** ([main.py](../backend/main.py)) means sessions don't survive restarts and don't share across replicas. Fine for demo; for prod swap in Redis.
 - **`SQLModel.metadata.create_all`** runs at startup. Good for demo seeding, bad for schema migrations — add Alembic before real data.
-- **HF Spaces filesystem is ephemeral.** That's why the DB is external (Neon).
 - **`faster-whisper` model is baked into the image.** Tradeoff: larger image, instant first request.
