@@ -53,6 +53,7 @@ export function BillingDataProvider({ children }) {
     setError("");
     try {
       const data = await api.initialState();
+      if (!data) throw new Error("backend unreachable or returned unexpected response");
       setSettings(data.settings || { company_name: "FluxBill", invoice_prefix: "INV" });
 
       const cust = (data.customers || []).map((x) => ({ ...x, id: x.id || x.code }));

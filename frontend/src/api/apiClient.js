@@ -1,4 +1,5 @@
 // src/api/apiClient.js
+
 const RAW_BASE =
   import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_API_BASE ||
@@ -13,6 +14,7 @@ async function request(path, opts = {}) {
     ...opts,
     headers: {
       "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true",   // ← add this line
       ...(opts.headers || {}),
     },
   });
