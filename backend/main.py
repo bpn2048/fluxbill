@@ -45,8 +45,39 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free").strip()
+def _parse_key_list(raw: str) -> List[str]:
+    return [k.strip() for k in raw.split(",") if k.strip()]
+
+
+# OPENROUTER_API_KEYS supports multiple comma-separated keys for automatic failover.
+# OPENROUTER_API_KEY (singular) is kept for backward compatibility and is treated as
+# the first/only entry if OPENROUTER_API_KEYS is not set.
+_raw_keys = os.getenv("OPENROUTER_API_KEYS", "").strip()
+OPENROUTER_API_KEYS = _parse_key_list(_raw_keys) if _raw_keys else _parse_key_list(
+    os.getenv("OPENROUTER_API_KEY", "")
+)
+# Optional: one model per key, comma-separated, same order as OPENROUTER_API_KEYS.
+# If shorter than the key list (or unset), the last model listed is reused for the rest.
+_raw_models = os.getenv("OPENROUTER_MODELS", "").strip()
+_model_list = _parse_key_list(_raw_models) if _raw_models else []
+_default_model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free").strip()
+
+
+def _model_for_key_index(i: int) -> str:
+    if not _model_list:
+        return _default_model
+    if i < len(_model_list):
+        return _model_list[i]
+    return _model_list[-1]
+
+
+# Each entry: (api_key, model_name). Tried in order on failure.
+OPENROUTER_CREDENTIALS: List[tuple] = [
+    (key, _model_for_key_index(i)) for i, key in enumerate(OPENROUTER_API_KEYS)
+]
+
+OPENROUTER_API_KEY = OPENROUTER_API_KEYS[0] if OPENROUTER_API_KEYS else ""
+OPENROUTER_MODEL = _default_model
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip()
 OPENROUTER_SITE_URL = os.getenv("OPENROUTER_SITE_URL", "").strip()
 OPENROUTER_APP_NAME = os.getenv("OPENROUTER_APP_NAME", "FluxBill Backend").strip()
@@ -73,7 +104,7 @@ _whisper_model = None
 _history_lock = Lock()
 _planner_lock = Lock()
 _session_histories: Dict[str, InMemoryChatMessageHistory] = {}
-_planner_chain: Optional[RunnableWithMessageHistory] = None
+
 
 
 @asynccontextmanager
@@ -230,7 +261,7 @@ def _get_session_history(session_id: str) -> InMemoryChatMessageHistory:
         return history
 
 
-def _build_planner_chain() -> RunnableWithMessageHistory:
+def _build_planner_chain(api_key: str, model: str) -> RunnableWithMessageHistory:
     headers: Dict[str, str] = {}
     if OPENROUTER_SITE_URL:
         headers["HTTP-Referer"] = OPENROUTER_SITE_URL
@@ -238,8 +269,8 @@ def _build_planner_chain() -> RunnableWithMessageHistory:
         headers["X-Title"] = OPENROUTER_APP_NAME
 
     llm = ChatOpenAI(
-        model=OPENROUTER_MODEL,
-        api_key=OPENROUTER_API_KEY,
+        model=model,
+        api_key=api_key,
         base_url=OPENROUTER_BASE_URL,
         temperature=0.1,
         timeout=OPENROUTER_TIMEOUT_SECONDS,
@@ -262,13 +293,21 @@ def _build_planner_chain() -> RunnableWithMessageHistory:
     )
 
 
-def _get_planner_chain() -> RunnableWithMessageHistory:
-    global _planner_chain
-    if _planner_chain is None:
-        with _planner_lock:
-            if _planner_chain is None:
-                _planner_chain = _build_planner_chain()
-    return _planner_chain
+# Cache of built chains, keyed by credential index, so each key/model pair is only
+# constructed once. _active_credential_index remembers which one last worked so we
+# try it first next time instead of always starting from index 0.
+_planner_chains: Dict[int, RunnableWithMessageHistory] = {}
+_active_credential_index = 0
+
+
+def _get_planner_chain_for(index: int) -> RunnableWithMessageHistory:
+    with _planner_lock:
+        chain = _planner_chains.get(index)
+        if chain is None:
+            api_key, model = OPENROUTER_CREDENTIALS[index]
+            chain = _build_planner_chain(api_key, model)
+            _planner_chains[index] = chain
+        return chain
 
 
 def _is_supported_target(target: str) -> bool:
@@ -490,26 +529,45 @@ async def plan_command(
     if nav_target:
         return _build_navigation_command(nav_target)
 
-    if not OPENROUTER_API_KEY:
+    if not OPENROUTER_CREDENTIALS:
         raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY is not set")
 
     normalized_session_id = _normalize_session_id(session_id)
     user_message = _build_user_message(user_text, active_tab, available_targets)
 
-    try:
-        content = await _get_planner_chain().ainvoke(
-            {
-                "system_prompt": _system_prompt(),
-                "format_instructions": _command_parser.get_format_instructions(),
-                "user_message": user_message,
-            },
-            config={
-                "configurable": {"session_id": normalized_session_id},
-                "metadata": {"component": "assistant_command_planner", "session_id": normalized_session_id},
-            },
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"LangChain planner error: {exc}") from exc
+    global _active_credential_index
+    n = len(OPENROUTER_CREDENTIALS)
+    # Try the last-known-good credential first, then cycle through the rest in order.
+    order = [(_active_credential_index + i) % n for i in range(n)]
+
+    content: Optional[str] = None
+    last_exc: Optional[Exception] = None
+    for idx in order:
+        try:
+            chain = _get_planner_chain_for(idx)
+            content = await chain.ainvoke(
+                {
+                    "system_prompt": _system_prompt(),
+                    "format_instructions": _command_parser.get_format_instructions(),
+                    "user_message": user_message,
+                },
+                config={
+                    "configurable": {"session_id": normalized_session_id},
+                    "metadata": {"component": "assistant_command_planner", "session_id": normalized_session_id},
+                },
+            )
+            _active_credential_index = idx
+            last_exc = None
+            break
+        except Exception as exc:  # noqa: BLE001 - we deliberately swallow to try the next key
+            last_exc = exc
+            continue
+
+    if content is None:
+        raise HTTPException(
+            status_code=500,
+            detail=f"LangChain planner error (all {n} key(s) failed): {last_exc}",
+        ) from last_exc
 
     try:
         cmd = _command_parser.parse(content)
